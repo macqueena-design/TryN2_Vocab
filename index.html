@@ -3,45 +3,65 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JLPT N2 詞彙挑戰</title>
+    <title>JLPT N2 詞彙挑戰 - 複習版</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
-        :root { --primary-color: #4a90e2; --success-color: #4caf50; --error-color: #f44336; --bg-color: #f5f7fa; }
+        :root { 
+            --primary-color: #4a90e2; 
+            --success-color: #4caf50; 
+            --error-color: #f44336; 
+            --bg-color: #f5f7fa; 
+        }
         body { font-family: 'PingFang TC', sans-serif; background-color: var(--bg-color); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-        #app { background: white; width: 90%; max-width: 500px; padding: 20px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; }
+        #app { background: white; width: 90%; max-width: 500px; padding: 25px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center; }
         .screen { display: none; }
         .active { display: block; }
-        .word-display { font-size: 32px; font-weight: bold; margin: 30px 0; color: #333; }
-        .options-grid { display: grid; gap: 10px; }
-        button { padding: 15px; font-size: 16px; border: 2px solid #eee; border-radius: 10px; background: white; cursor: pointer; }
-        .correct { background: var(--success-color) !important; color: white; }
-        .wrong { background: var(--error-color) !important; color: white; }
-        .btn-start { background: var(--primary-color); color: white; border: none; width: 100%; font-weight: bold; margin-top: 10px; }
-        select { padding: 10px; width: 100%; margin-bottom: 20px; }
+        
+        .word-display { font-size: 36px; font-weight: bold; margin: 20px 0; color: #333; min-height: 50px; }
+        .feedback-text { height: 24px; margin-bottom: 15px; font-weight: bold; font-size: 18px; }
+        .options-grid { display: grid; gap: 12px; }
+        
+        button { 
+            padding: 16px; font-size: 17px; border: 2px solid #edf2f7; border-radius: 12px; 
+            background: white; cursor: pointer; transition: all 0.2s; outline: none;
+        }
+        button:hover:not(:disabled) { border-color: var(--primary-color); background: #f0f7ff; }
+        
+        .correct { background: var(--success-color) !important; color: white; border-color: var(--success-color) !important; }
+        .wrong { background: var(--error-color) !important; color: white; border-color: var(--error-color) !important; }
+        
+        .stats { display: flex; justify-content: space-between; margin-bottom: 20px; color: #718096; font-size: 14px; }
+        .btn-main { background: var(--primary-color); color: white; border: none; width: 100%; font-weight: bold; margin-top: 15px; padding: 18px; font-size: 18px; }
+        select { padding: 12px; width: 100%; margin-bottom: 20px; border-radius: 8px; border: 1px solid #cbd5e0; }
     </style>
 </head>
 <body>
 
 <div id="app">
-    <div id="loading">載入詞庫中...</div>
+    <div id="loading">正在準備 N2 詞庫...</div>
 
     <div id="menu-screen" class="screen">
         <h1>N2 詞彙挑戰 ⚡</h1>
-        <p>請選擇溫習範圍：</p>
-        <select id="chapter-select"><option value="all">所有章節</option></select>
-        <button class="btn-start" onclick="startGame()">開始遊戲</button>
+        <p style="color: #666;">答錯可以重試，答對後停留 2.5 秒</p>
+        <div style="text-align: left; margin-bottom: 5px; font-size: 14px;">選擇章節：</div>
+        <select id="chapter-select"><option value="all">全部章節</option></select>
+        <button class="btn-main" onclick="startGame()">開始溫習</button>
     </div>
 
     <div id="game-screen" class="screen">
-        <div id="stats">分數: <span id="score">0</span></div>
+        <div class="stats">
+            <span>得分: <b id="score">0</b></span>
+            <span>進度: <b id="progress">0</b></span>
+        </div>
         <div class="word-display" id="question-word"></div>
+        <div id="feedback" class="feedback-text"></div>
         <div class="options-grid" id="options"></div>
     </div>
 
     <div id="result-screen" class="screen">
-        <h1>測驗結束</h1>
-        <p>最終得分：<span id="final-score">0</span></p>
-        <button class="btn-start" onclick="location.reload()">重新開始</button>
+        <h1>溫習完成！</h1>
+        <p>你的最終得分是：<span id="final-score" style="font-size: 24px; font-weight: bold; color: var(--primary-color);">0</span></p>
+        <button class="btn-main" onclick="location.reload()">回主選單</button>
     </div>
 </div>
 
@@ -50,13 +70,13 @@
     let quizData = [];
     let currentWord = null;
     let score = 0;
+    let firstAttempt = true; // 追蹤是否為第一次嘗試
 
-    // 自動讀取同資料夾下的 CSV 檔案
+    // 讀取 CSV
     Papa.parse("TryN2_Vocab.csv", {
         download: true,
         header: true,
         complete: function(results) {
-            // 轉換 CSV 欄位名稱以符合程式邏輯
             allData = results.data.filter(row => row['日文 (漢字/假名)']).map(row => ({
                 ch: row['章節'],
                 jp: row['日文 (漢字/假名)'],
@@ -69,16 +89,13 @@
     function initMenu() {
         document.getElementById('loading').style.display = 'none';
         document.getElementById('menu-screen').classList.add('active');
-        
-        const chapters = [...new Set(allData.map(item => item.ch))];
+        const chapters = [...new Set(allData.map(item => item.ch))].filter(Boolean);
         const select = document.getElementById('chapter-select');
-        chapters.forEach(ch => {
-            if(ch) {
-                const opt = document.createElement('option');
-                opt.value = ch;
-                opt.textContent = `第 ${ch} 章`;
-                select.appendChild(opt);
-            }
+        chapters.sort((a, b) => a - b).forEach(ch => {
+            const opt = document.createElement('option');
+            opt.value = ch;
+            opt.textContent = `第 ${ch} 章`;
+            select.appendChild(opt);
         });
     }
 
@@ -97,9 +114,16 @@
             document.getElementById('final-score').textContent = score;
             return;
         }
+
         currentWord = quizData.pop();
-        document.getElementById('question-word').textContent = currentWord.jp;
+        firstAttempt = true; // 重設新題目的第一次嘗試狀態
         
+        document.getElementById('question-word').textContent = currentWord.jp;
+        document.getElementById('feedback').textContent = "";
+        document.getElementById('feedback').style.color = "";
+        document.getElementById('progress').textContent = quizData.length;
+
+        // 生成選項
         let options = [currentWord.zh];
         while (options.length < 4) {
             let randomWord = allData[Math.floor(Math.random() * allData.length)].zh;
@@ -112,18 +136,40 @@
         options.forEach(opt => {
             const btn = document.createElement('button');
             btn.textContent = opt;
-            btn.onclick = () => {
-                if (opt === currentWord.zh) {
-                    btn.classList.add('correct');
-                    score += 10;
-                } else {
-                    btn.classList.add('wrong');
-                }
-                setTimeout(nextQuestion, 1000);
-            };
+            btn.onclick = () => handleAnswer(btn, opt);
             optionsDiv.appendChild(btn);
         });
-        document.getElementById('score').textContent = score;
+    }
+
+    function handleAnswer(btn, selected) {
+        const feedback = document.getElementById('feedback');
+        
+        if (selected === currentWord.zh) {
+            // 答對了
+            btn.classList.add('correct');
+            feedback.textContent = "正解！ 正在跳轉...";
+            feedback.style.color = "var(--success-color)";
+            
+            // 禁用所有按鈕防止在等待時間重覆點擊
+            const buttons = document.querySelectorAll('#options button');
+            buttons.forEach(b => b.disabled = true);
+
+            if (firstAttempt) {
+                score += 10;
+                document.getElementById('score').textContent = score;
+            }
+
+            // 核心修改：等待 2.5 秒才跳下一題
+            setTimeout(nextQuestion, 2500);
+            
+        } else {
+            // 答錯了
+            btn.classList.add('wrong');
+            btn.disabled = true; // 該錯誤選項不可再點
+            feedback.textContent = "不對喔，再試試看！";
+            feedback.style.color = "var(--error-color)";
+            firstAttempt = false; // 標記已不是第一次嘗試
+        }
     }
 
     function showScreen(id) {
