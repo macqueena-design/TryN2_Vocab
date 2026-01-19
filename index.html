@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JLPT N2 詞彙挑戰</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <style>
+        :root { --primary-color: #4a90e2; --success-color: #4caf50; --error-color: #f44336; --bg-color: #f5f7fa; }
+        body { font-family: 'PingFang TC', sans-serif; background-color: var(--bg-color); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        #app { background: white; width: 90%; max-width: 500px; padding: 20px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; }
+        .screen { display: none; }
+        .active { display: block; }
+        .word-display { font-size: 32px; font-weight: bold; margin: 30px 0; color: #333; }
+        .options-grid { display: grid; gap: 10px; }
+        button { padding: 15px; font-size: 16px; border: 2px solid #eee; border-radius: 10px; background: white; cursor: pointer; }
+        .correct { background: var(--success-color) !important; color: white; }
+        .wrong { background: var(--error-color) !important; color: white; }
+        .btn-start { background: var(--primary-color); color: white; border: none; width: 100%; font-weight: bold; margin-top: 10px; }
+        select { padding: 10px; width: 100%; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <div id="loading">載入詞庫中...</div>
+
+    <div id="menu-screen" class="screen">
+        <h1>N2 詞彙挑戰 ⚡</h1>
+        <p>請選擇溫習範圍：</p>
+        <select id="chapter-select"><option value="all">所有章節</option></select>
+        <button class="btn-start" onclick="startGame()">開始遊戲</button>
+    </div>
+
+    <div id="game-screen" class="screen">
+        <div id="stats">分數: <span id="score">0</span></div>
+        <div class="word-display" id="question-word"></div>
+        <div class="options-grid" id="options"></div>
+    </div>
+
+    <div id="result-screen" class="screen">
+        <h1>測驗結束</h1>
+        <p>最終得分：<span id="final-score">0</span></p>
+        <button class="btn-start" onclick="location.reload()">重新開始</button>
+    </div>
+</div>
+
+<script>
+    let allData = [];
+    let quizData = [];
+    let currentWord = null;
+    let score = 0;
+
+    // 自動讀取同資料夾下的 CSV 檔案
+    Papa.parse("TryN2_Vocab.csv", {
+        download: true,
+        header: true,
+        complete: function(results) {
+            // 轉換 CSV 欄位名稱以符合程式邏輯
+            allData = results.data.filter(row => row['日文 (漢字/假名)']).map(row => ({
+                ch: row['章節'],
+                jp: row['日文 (漢字/假名)'],
+                zh: row['中文釋義']
+            }));
+            initMenu();
+        }
+    });
+
+    function initMenu() {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('menu-screen').classList.add('active');
+        
+        const chapters = [...new Set(allData.map(item => item.ch))];
+        const select = document.getElementById('chapter-select');
+        chapters.forEach(ch => {
+            if(ch) {
+                const opt = document.createElement('option');
+                opt.value = ch;
+                opt.textContent = `第 ${ch} 章`;
+                select.appendChild(opt);
+            }
+        });
+    }
+
+    function startGame() {
+        const selectedCh = document.getElementById('chapter-select').value;
+        quizData = selectedCh === 'all' ? [...allData] : allData.filter(item => item.ch === selectedCh);
+        quizData.sort(() => Math.random() - 0.5);
+        score = 0;
+        showScreen('game-screen');
+        nextQuestion();
+    }
+
+    function nextQuestion() {
+        if (quizData.length === 0) {
+            showScreen('result-screen');
+            document.getElementById('final-score').textContent = score;
+            return;
+        }
+        currentWord = quizData.pop();
+        document.getElementById('question-word').textContent = currentWord.jp;
+        
+        let options = [currentWord.zh];
+        while (options.length < 4) {
+            let randomWord = allData[Math.floor(Math.random() * allData.length)].zh;
+            if (!options.includes(randomWord)) options.push(randomWord);
+        }
+        options.sort(() => Math.random() - 0.5);
+
+        const optionsDiv = document.getElementById('options');
+        optionsDiv.innerHTML = '';
+        options.forEach(opt => {
+            const btn = document.createElement('button');
+            btn.textContent = opt;
+            btn.onclick = () => {
+                if (opt === currentWord.zh) {
+                    btn.classList.add('correct');
+                    score += 10;
+                } else {
+                    btn.classList.add('wrong');
+                }
+                setTimeout(nextQuestion, 1000);
+            };
+            optionsDiv.appendChild(btn);
+        });
+        document.getElementById('score').textContent = score;
+    }
+
+    function showScreen(id) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+    }
+</script>
+</body>
+</html>
