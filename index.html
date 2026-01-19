@@ -30,7 +30,7 @@
 
     <div id="menu-screen" class="screen">
         <h1>N2 詞彙挑戰 ⚡</h1>
-        <p>答錯可重試，答對停留 2.5 秒</p>
+        <p>答錯，請重試</p>
         <select id="chapter-select"><option value="all">全部章節</option></select>
         <button class="main-btn" onclick="startGame()">開始練習</button>
     </div>
@@ -127,11 +127,11 @@
                 if(!canClick || b.disabled) return;
                 if(o === current.zh) {
                     b.classList.add('correct');
-                    document.getElementById('hint').textContent = "正解！ 休息 2.5 秒...";
+                    document.getElementById('hint').textContent = "正解";
                     document.getElementById('hint').style.color = "var(--s)";
                     canClick = false;
                     if(isFirst) { score += 10; document.getElementById('score').textContent = score; }
-                    setTimeout(nextQ, 2500); // 停 2.5 秒
+                    setTimeout(nextQ, 2200); // 停 2.2秒
                 } else {
                     b.classList.add('wrong');
                     b.disabled = true;
