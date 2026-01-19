@@ -3,120 +3,151 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JLPT N2 詞彙溫習 App</title>
+    <title>JLPT N2 詞彙複習挑戰</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
-        :root { 
-            --primary-color: #4a90e2; 
-            --success-color: #4caf50; 
-            --error-color: #f44336; 
-            --bg-color: #f0f4f8; 
-        }
-        body { font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; background-color: var(--bg-color); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        :root { --p: #4a90e2; --s: #4caf50; --e: #f44336; --bg: #f8f9fa; }
+        body { font-family: sans-serif; background: var(--bg); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
         #app { background: white; width: 95%; max-width: 450px; padding: 25px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center; }
         .screen { display: none; }
         .active { display: block; }
-        
-        .word-display { font-size: 32px; font-weight: bold; margin: 25px 0; color: #2d3748; min-height: 45px; }
-        .feedback-area { height: 30px; margin-bottom: 15px; font-weight: bold; font-size: 18px; }
-        .options-grid { display: grid; gap: 12px; }
-        
-        button { 
-            padding: 16px; font-size: 17px; border: 2px solid #e2e8f0; border-radius: 12px; 
-            background: white; cursor: pointer; transition: all 0.2s; outline: none;
-        }
-        button:hover:not(:disabled) { border-color: var(--primary-color); background: #ebf8ff; }
-        
-        /* 答對與答錯的樣式 */
-        .correct { background-color: var(--success-color) !important; color: white; border-color: var(--success-color) !important; }
-        .wrong { background-color: var(--error-color) !important; color: white; border-color: var(--error-color) !important; cursor: not-allowed; }
-        
-        .stats { display: flex; justify-content: space-between; margin-bottom: 20px; color: #4a5568; font-size: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-        .btn-main { background: var(--primary-color); color: white; border: none; width: 100%; font-weight: bold; margin-top: 15px; padding: 18px; font-size: 18px; }
-        select { padding: 12px; width: 100%; margin-bottom: 20px; border-radius: 8px; border: 1px solid #cbd5e0; font-size: 16px; }
+        .word { font-size: 34px; font-weight: bold; margin: 20px 0; color: #333; }
+        .hint { height: 25px; margin-bottom: 15px; font-weight: bold; }
+        .options { display: grid; gap: 10px; }
+        button { padding: 15px; font-size: 17px; border: 2px solid #eee; border-radius: 12px; background: white; cursor: pointer; transition: 0.2s; }
+        .correct { background: var(--s) !important; color: white; border-color: var(--s); }
+        .wrong { background: var(--e) !important; color: white; border-color: var(--e); cursor: not-allowed; }
+        .stats { display: flex; justify-content: space-between; font-size: 14px; color: #666; margin-bottom: 15px; }
+        .main-btn { background: var(--p); color: white; border: none; width: 100%; padding: 15px; border-radius: 10px; font-size: 18px; margin-top: 10px; }
+        select { width: 100%; padding: 12px; margin-bottom: 20px; border-radius: 8px; }
+        #error-msg { color: var(--e); font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div id="app">
-    <div id="loading">載入中...</div>
+    <div id="loading">正在讀取 ...<br><span id="error-msg"></span></div>
 
     <div id="menu-screen" class="screen">
-        <h1>N2 詞彙溫習 ⚡</h1>
-        <p style="color: #718096;">答錯可重試，答對停留 2.5 秒</p>
+        <h1>N2 詞彙挑戰 ⚡</h1>
+        <p>答錯可重試，答對停留 2.5 秒</p>
         <select id="chapter-select"><option value="all">全部章節</option></select>
-        <button class="btn-main" onclick="startGame()">開始練習</button>
+        <button class="main-btn" onclick="startGame()">開始練習</button>
     </div>
 
     <div id="game-screen" class="screen">
-        <div class="stats">
-            <span>得分: <b id="score">0</b></span>
-            <span>剩餘: <b id="remaining">0</b></span>
-        </div>
-        <div class="word-display" id="question-word"></div>
-        <div id="feedback" class="feedback-area"></div>
-        <div class="options-grid" id="options"></div>
+        <div class="stats"><span>得分: <b id="score">0</b></span><span>剩餘: <b id="rem">0</b></span></div>
+        <div class="word" id="q-word"></div>
+        <div id="hint" class="hint"></div>
+        <div class="options" id="options"></div>
     </div>
 
     <div id="result-screen" class="screen">
-        <h1>完成複習！</h1>
-        <p>最終得分：<span id="final-score" style="font-size: 28px; font-weight: bold; color: var(--primary-color);">0</span></p>
-        <button class="btn-main" onclick="location.reload()">回主頁</button>
+        <h1>練習完成！</h1>
+        <p>最終得分：<span id="final-score" style="font-size: 24px; color: var(--p);">0</span></p>
+        <button class="main-btn" onclick="location.reload()">回首頁</button>
     </div>
 </div>
 
 <script>
-    let allData = [];
-    let quizData = [];
-    let currentWord = null;
-    let score = 0;
-    let isFirstTry = true; // 用於判斷是否第一次就答對
+    let allData = [], quizData = [], current = null, score = 0, canClick = true, isFirst = true;
 
-    // 讀取 CSV (請確保檔名一致)
+    // 1. 讀取 CSV 
     Papa.parse("TryN2_Vocab.csv", {
         download: true,
         header: true,
-        complete: function(results) {
-            allData = results.data.filter(row => row['日文 (漢字/假名)']).map(row => ({
-                ch: row['章節'],
-                jp: row['日文 (漢字/假名)'],
-                zh: row['中文釋義']
-            }));
+        skipEmptyLines: true,
+        complete: function(res) {
+            const data = res.data;
+            if (data.length === 0) { showError("CSV 檔案是空的"); return; }
+            
+            // 自動識別欄位
+            const keys = Object.keys(data[0]);
+            const jpKey = keys.find(k => k.includes("日文"));
+            const zhKey = keys.find(k => k.includes("中文"));
+            const chKey = keys.find(k => k.includes("章節"));
+
+            if (!jpKey || !zhKey) { showError("找不到 '日文' 或 '中文' 欄位"); return; }
+
+            allData = data.map(r => ({ ch: r[chKey] || "1", jp: r[jpKey], zh: r[zhKey] }));
+            document.getElementById('loading').style.display = 'none';
             initMenu();
         },
-        error: function() {
-            document.getElementById('loading').textContent = "讀取失敗，請檢查 CSV 檔名是否為 TryN2_Vocab.csv";
-        }
+        error: function() { showError("無法載入 ，請確認檔案在同資料夾"); }
     });
 
+    function showError(m) { document.getElementById('error-msg').textContent = "錯誤: " + m; }
+
     function initMenu() {
-        document.getElementById('loading').style.display = 'none';
         document.getElementById('menu-screen').classList.add('active');
-        const chapters = [...new Set(allData.map(item => item.ch))].filter(Boolean).sort((a,b) => a-b);
-        const select = document.getElementById('chapter-select');
-        chapters.forEach(ch => {
-            const opt = document.createElement('option');
-            opt.value = ch;
-            opt.textContent = `第 ${ch} 章`;
-            select.appendChild(opt);
+        const chapters = [...new Set(allData.map(d => d.ch))].filter(Boolean).sort((a,b)=>a-b);
+        const sel = document.getElementById('chapter-select');
+        chapters.forEach(c => {
+            const o = document.createElement('option');
+            o.value = c; o.textContent = "第 " + c + " 章";
+            sel.appendChild(o);
         });
     }
 
     function startGame() {
-        const selectedCh = document.getElementById('chapter-select').value;
-        quizData = selectedCh === 'all' ? [...allData] : allData.filter(item => item.ch === selectedCh);
+        const ch = document.getElementById('chapter-select').value;
+        quizData = ch === 'all' ? [...allData] : allData.filter(d => d.ch === ch);
         quizData.sort(() => Math.random() - 0.5);
         score = 0;
         showScreen('game-screen');
-        nextQuestion();
+        nextQ();
     }
 
-    function nextQuestion() {
+    function nextQ() {
         if (quizData.length === 0) {
             showScreen('result-screen');
             document.getElementById('final-score').textContent = score;
             return;
         }
+        canClick = true;
+        isFirst = true;
+        current = quizData.pop();
+        document.getElementById('q-word').textContent = current.jp;
+        document.getElementById('hint').textContent = "";
+        document.getElementById('rem').textContent = quizData.length;
+        
+        let opts = [current.zh];
+        while(opts.length < 4) {
+            let r = allData[Math.floor(Math.random()*allData.length)].zh;
+            if(!opts.includes(r)) opts.push(r);
+        }
+        opts.sort(() => Math.random() - 0.5);
 
-        currentWord = quizData.pop();
-        isFirstTry = true; // 新題目重設為第一次嘗試
+        const div = document.getElementById('options');
+        div.innerHTML = '';
+        opts.forEach(o => {
+            const b = document.createElement('button');
+            b.textContent = o;
+            b.onclick = () => {
+                if(!canClick || b.disabled) return;
+                if(o === current.zh) {
+                    b.classList.add('correct');
+                    document.getElementById('hint').textContent = "正解！ 休息 2.5 秒...";
+                    document.getElementById('hint').style.color = "var(--s)";
+                    canClick = false;
+                    if(isFirst) { score += 10; document.getElementById('score').textContent = score; }
+                    setTimeout(nextQ, 2500); // 停 2.5 秒
+                } else {
+                    b.classList.add('wrong');
+                    b.disabled = true;
+                    isFirst = false;
+                    document.getElementById('hint').textContent = "不對，再試一次！";
+                    document.getElementById('hint').style.color = "var(--e)";
+                }
+            };
+            div.appendChild(b);
+        });
+    }
+
+    function showScreen(id) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+    }
+</script>
+</body>
+</html>
